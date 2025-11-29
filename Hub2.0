@@ -193,8 +193,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ==== SCRIPT OWNER TAG VOOR ALLE SCRIPT GEBRUIKERS ====
-local SCRIPT_OWNER_USERID = 9819888123 -- vervang door jouw UserId
-local SCRIPT_OWNER_USERID = 9036014394
+local SCRIPT_OWNER_USERID = 9819888123 -- vervang door jouw UserI
 local function createOwnerTag(character)
     local head = character:WaitForChild("Head")
     local billboard = Instance.new("BillboardGui")
