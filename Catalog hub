@@ -1,0 +1,232 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "IIIX27Xtyrellfishhead",
+    Icon = 0,
+    LoadingTitle = "Rayfield Interface Suite",
+    LoadingSubtitle = "by Sirius",
+    ShowText = "Rayfield",
+    Theme = "Default",
+    ToggleUIKeybind = "K",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {Enabled = true, FolderName = nil, FileName = "CHICKEN HUB"},
+    Discord = {Enabled = false, Invite = "noinvitelink", RememberJoins = true},
+    KeySystem = false
+})
+
+-- Player Tab (alles in één tab)
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+
+-- Notify bij uitvoeren
+Rayfield:Notify({Title = "Script executed!", Content = "Good boy", Duration = 5, Image = nil})
+
+-- ==== Infinite Yield automatisch loaden ====
+loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+
+-- ==== Infinite Jump ====
+PlayerTab:CreateButton({
+    Name = "Inf Jump",
+    Callback = function()
+        local InfiniteJumpEnabled = true
+        game:GetService("UserInputService").JumpRequest:Connect(function()
+            if InfiniteJumpEnabled then
+                local hum = game.Players.LocalPlayer.Character:FindFirstChildOfClass('Humanoid')
+                if hum then hum:ChangeState("Jumping") end
+            end
+        end)
+        Rayfield:Notify({Title="Inf Jump", Content="Enabled", Duration=3})
+    end
+})
+
+-- ==== Outfit Liker ====
+PlayerTab:CreateButton({
+    Name = "Outfit Liker",
+    Callback = function()
+        local Players = game:GetService("Players")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        for _, player in ipairs(Players:GetPlayers()) do
+            local args = {[1] = player}
+            ReplicatedStorage.Events.LikeOutfit:FireServer(unpack(args))
+        end
+        Rayfield:Notify({Title="Outfit Liker", Content="Liked all outfits!", Duration=3})
+    end
+})
+
+-- ==== WalkSpeed Slider ====
+local LocalPlayer = game.Players.LocalPlayer
+local Character = LocalPlayer.Character
+local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+local DefaultWalkSpeed = 16
+if Humanoid then DefaultWalkSpeed = Humanoid.WalkSpeed end
+
+PlayerTab:CreateSlider({
+    Name = "WalkSpeed",
+    Range = {16, 400},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = DefaultWalkSpeed,
+    Callback = function(value)
+        Humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if Humanoid then
+            pcall(function() Humanoid.WalkSpeed = value end)
+        end
+    end
+})
+
+-- ==== Fly System ====
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local HRP = Character and Character:FindFirstChild("HumanoidRootPart")
+
+getgenv().flying = false
+getgenv().flySpeed = 50
+getgenv().FlyConn = nil
+local moveDirection = Vector3.zero
+local inputKeys = {W=false, A=false, S=false, D=false, Space=false, LeftShift=false}
+
+local function updateDirection()
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    local dir = Vector3.zero
+    if inputKeys.W then dir += cam.CFrame.LookVector end
+    if inputKeys.S then dir -= cam.CFrame.LookVector end
+    if inputKeys.A then dir -= cam.CFrame.RightVector end
+    if inputKeys.D then dir += cam.CFrame.RightVector end
+    if inputKeys.Space then dir += Vector3.new(0,1,0) end
+    if inputKeys.LeftShift then dir -= Vector3.new(0,1,0) end
+    moveDirection = dir.Magnitude > 0 and dir.Unit or Vector3.zero
+end
+
+-- Clean previous connections
+for _, connName in ipairs({"FlyInputBeganConn","FlyInputEndedConn","FlyConn"}) do
+    if getgenv()[connName] then
+        getgenv()[connName]:Disconnect()
+        getgenv()[connName] = nil
+    end
+end
+
+getgenv().FlyInputBeganConn = UserInputService.InputBegan:Connect(function(input, gp)
+    if gp or not input.KeyCode then return end
+    local key = input.KeyCode.Name
+    if inputKeys[key] ~= nil then inputKeys[key] = true; updateDirection() end
+end)
+
+getgenv().FlyInputEndedConn = UserInputService.InputEnded:Connect(function(input, gp)
+    if gp or not input.KeyCode then return end
+    local key = input.KeyCode.Name
+    if inputKeys[key] ~= nil then inputKeys[key] = false; updateDirection() end
+end)
+
+local function stopFlying()
+    getgenv().flying = false
+    if Humanoid then Humanoid.PlatformStand = false end
+    if getgenv().FlyConn then getgenv().FlyConn:Disconnect() getgenv().FlyConn=nil end
+    if HRP then
+        for _, obj in ipairs(HRP:GetChildren()) do
+            if obj:IsA("BodyVelocity") or obj:IsA("BodyGyro") then obj:Destroy() end
+        end
+    end
+    Rayfield:Notify({Title="Fly", Content="Disabled", Duration=3})
+end
+
+local function startFlying()
+    Character = LocalPlayer.Character
+    HRP = Character and Character:FindFirstChild("HumanoidRootPart")
+    Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    if not HRP or not Humanoid then
+        Rayfield:Notify({Title="Fly", Content="HumanoidRootPart not found!", Duration=4})
+        return
+    end
+    getgenv().flying = true
+    Humanoid.PlatformStand = true
+
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.P = 25000
+    bv.Name = "FlyVelocity"
+    bv.Velocity = Vector3.zero
+    bv.Parent = HRP
+
+    local bg = Instance.new("BodyGyro")
+    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bg.P = 25000
+    bg.Name = "FlyGyro"
+    bg.CFrame = HRP.CFrame
+    bg.Parent = HRP
+
+    getgenv().FlyConn = RunService.RenderStepped:Connect(function()
+        if not getgenv().flying or not HRP then return end
+        updateDirection()
+        bv.Velocity = moveDirection * getgenv().flySpeed
+        if workspace.CurrentCamera then bg.CFrame = workspace.CurrentCamera.CFrame end
+    end)
+
+    Rayfield:Notify({Title="Fly", Content="Enabled", Duration=3})
+end
+
+-- Fly Toggle
+PlayerTab:CreateToggle({
+    Name = "Toggle Fly",
+    CurrentValue = false,
+    Flag = "ToggleFlyGlobalVariable",
+    Callback = function(toggled)
+        if toggled then startFlying() else stopFlying() end
+    end
+})
+
+-- Fly Speed Slider
+PlayerTab:CreateSlider({
+    Name = "Fly Speed",
+    Range = {10,250},
+    Increment = 5,
+    Suffix = "Speed",
+    CurrentValue = getgenv().flySpeed,
+    Callback = function(v) getgenv().flySpeed = v end,
+})
+
+-- Reset Fly bij respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    HRP = char:WaitForChild("HumanoidRootPart",5)
+    Humanoid = char:WaitForChild("Humanoid",5)
+    stopFlying()
+end)
+
+-- ==== Script Owner Billboard ====
+Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Head = Character:WaitForChild("Head")
+
+local Billboard = Instance.new("BillboardGui")
+Billboard.Name = "ScriptOwnerTag"
+Billboard.Adornee = Head
+Billboard.Size = UDim2.new(0,200,0,50)
+Billboard.StudsOffset = Vector3.new(0,2,0)
+Billboard.AlwaysOnTop = true
+Billboard.Parent = Head
+
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Size = UDim2.new(1,0,1,0)
+TextLabel.BackgroundTransparency = 1
+TextLabel.Text = "Script Owner"
+TextLabel.TextColor3 = Color3.fromRGB(255,0,0)
+TextLabel.TextScaled = true
+TextLabel.Font = Enum.Font.SourceSansBold
+TextLabel.Parent = Billboard
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    local newHead = char:WaitForChild("Head")
+    Billboard.Adornee = newHead
+end)
+
+-- ==== Notification naar alle spelers ====
+local Players = game:GetService("Players")
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        Rayfield:Notify({
+            Title = "Player Joined",
+            Content = LocalPlayer.Name .. " has joined the game!",
+            Duration = 5
+        })
+    end
+end
